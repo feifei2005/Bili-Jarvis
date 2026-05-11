@@ -33,6 +33,7 @@ from memory_manager import (
     get_active_memos, save_memo, delete_memo_by_keyword,
 )
 from log_util import log
+from bot_state import global_state
 
 _last_send_time = 0.0
 _last_bot_msg = ""
@@ -67,6 +68,8 @@ async def _send_worker(session: aiohttp.ClientSession, room_id: int):
                     result = await resp.json()
                     if result.get("code") == 0:
                         _last_bot_msg = msg
+                        if global_state:
+                            global_state.add_send(msg)
                         print(f"[{ts()}] [Brain] 弹幕发送成功: {msg}")
                         log(f"[Send] {msg}")
                     else:

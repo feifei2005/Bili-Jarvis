@@ -1,4 +1,11 @@
 bot_data/
+run/
+config.json
+__pycache__/
+*.pyc
 *.mp4
 *.dm.json
 clean_shutdown.flag
+dist/
+build/
+*.spec

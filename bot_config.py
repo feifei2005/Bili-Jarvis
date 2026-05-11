@@ -1,5 +1,5 @@
 """
-弹幕机器人配置
+弹幕机器人配置 - 从 config.json 读取
 """
 import os
 from datetime import datetime
@@ -9,90 +9,74 @@ def ts() -> str:
     """返回当前时间戳字符串 [HH:MM:SS]，用于控制台日志"""
     return datetime.now().strftime("%H:%M:%S")
 
-# ========== 房间 ==========
-ROOM_ID = 0  # 替换为你的直播间ID
 
-# ========== B站凭据 ==========
-SESSDATA = "your_sessdata_here"
-BILI_JCT = "your_bili_jct_here"
-BUVID3 = "your_buvid3_here"
+def _init():
+    from config_manager import config as cfg
+    c = cfg
 
-BILI_HEADERS = {
-    "Referer": "https://live.bilibili.com/",
-    "Origin": "https://live.bilibili.com",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
-}
+    globals()["ROOM_ID"] = c.get("room", "room_id")
+    globals()["SESSDATA"] = c.get("room", "sessdata")
+    globals()["BILI_JCT"] = c.get("room", "bili_jct")
+    globals()["BUVID3"] = c.get("room", "buvid3")
 
-BILI_COOKIES = {
-    "SESSDATA": SESSDATA,
-    "bili_jct": BILI_JCT,
-    "buvid3": BUVID3,
-}
+    globals()["BILI_HEADERS"] = {
+        "Referer": "https://live.bilibili.com/",
+        "Origin": "https://live.bilibili.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36 Edg/132.0.0.0",
+    }
+    globals()["BILI_COOKIES"] = {
+        "SESSDATA": c.get("room", "sessdata"),
+        "bili_jct": c.get("room", "bili_jct"),
+        "buvid3": c.get("room", "buvid3"),
+    }
 
-# ========== AI 模型（一轮处理用 4 个模型）==========
+    globals()["VISION_BASE_URL"] = c.get("vision", "base_url")
+    globals()["VISION_API_KEY"] = c.get("vision", "api_key")
+    globals()["VISION_MODEL"] = c.get("vision", "model")
 
-# 1. 视觉模型：describe_video() 生成画面描述（多模态 → 文本）
-VISION_BASE_URL = "https://your-vision-api.example.com/v1"
-VISION_API_KEY = "sk-your-vision-api-key"
-VISION_MODEL = "your-vision-model"
+    globals()["ANALYSIS_BASE_URL"] = c.get("analysis", "base_url")
+    globals()["ANALYSIS_API_KEY"] = c.get("analysis", "api_key")
+    globals()["ANALYSIS_MODEL"] = c.get("analysis", "model")
+    globals()["EPISODE_MODEL"] = c.get("analysis", "episode_model")
+    globals()["DUP_CHECK_MODEL"] = c.get("analysis", "dup_check_model")
+    globals()["DUP_CHECK_WINDOW"] = c.get("analysis", "dup_check_window")
 
-# 2. 分析模型：analyze() 分析直播局势（文本 → JSON）
-ANALYSIS_BASE_URL = "https://your-analysis-api.example.com/v1"
-ANALYSIS_API_KEY = "sk-your-analysis-api-key"
-ANALYSIS_MODEL = "your-analysis-model"
+    globals()["REPLY_BASE_URL"] = c.get("reply", "base_url")
+    globals()["REPLY_API_KEY"] = c.get("reply", "api_key")
+    globals()["REPLY_MODEL"] = c.get("reply", "model")
 
-# 短期总结模型（Episode 生成/深度整理用，轻量低延迟）
-EPISODE_MODEL = "your-episode-model"
+    globals()["EMBEDDING_BASE_URL"] = c.get("embedding", "base_url")
+    globals()["EMBEDDING_API_KEY"] = c.get("embedding", "api_key")
+    globals()["EMBEDDING_MODEL"] = c.get("embedding", "model")
 
-# 语义去重模型（复用 ANALYSIS 端点，可独立配置模型名）
-DUP_CHECK_MODEL = "your-dupcheck-model"
-DUP_CHECK_WINDOW = 60  # 去重窗口（秒）
+    globals()["GEMINI_FORMAT_MODELS"] = set()
 
-# 3. 回复模型：respond() 生成弹幕回复（文本 → 文本）
-REPLY_BASE_URL = "https://your-reply-api.example.com/v1"
-REPLY_API_KEY = "sk-your-reply-api-key"
-REPLY_MODEL = "your-reply-model"
+    globals()["VISION_CLIP_SECONDS"] = c.get("intervals", "vision_clip_seconds")
+    globals()["PLAY_URL_API"] = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo"
 
-# 4. 嵌入模型：get_embedding() 长期记忆向量化（文本 → 向量）
-EMBEDDING_BASE_URL = "https://your-embedding-api.example.com/v1"
-EMBEDDING_API_KEY = "sk-your-embedding-api-key"
-EMBEDDING_MODEL = "your-embedding-model"
+    bot_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_data")
+    globals()["BOT_DATA_DIR"] = bot_data_dir
+    globals()["MEMORY_DB_PATH"] = os.path.join(bot_data_dir, "memory.db")
+    globals()["LONG_TERM_DB_PATH"] = os.path.join(bot_data_dir, "long_term.db")
+    globals()["EPISODE_INTERVAL_SECONDS"] = c.get("intervals", "episode_interval_seconds")
 
-# 需要 Gemini 原生请求体格式的模型（填模型名即可，不限 Gemini 系列）
-GEMINI_FORMAT_MODELS = set()
+    globals()["SEND_DANMAKU_API"] = "https://api.live.bilibili.com/msg/send"
+    globals()["DANMAKU_COOLDOWN"] = c.get("intervals", "danmaku_cooldown")
+    globals()["GIFT_THANK_THRESHOLD"] = c.get("intervals", "gift_thank_threshold")
 
-# ========== 视觉采样 ==========
-VISION_CLIP_SECONDS = 20
-# 获取流地址的 API（V2，参考 BililiveRecorder）
-PLAY_URL_API = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo"
+    globals()["FFMPEG_PATH"] = "ffmpeg"
 
-# ========== 记忆 ==========
-BOT_DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_data")
-MEMORY_DB_PATH = os.path.join(BOT_DATA_DIR, "memory.db")
-LONG_TERM_DB_PATH = os.path.join(BOT_DATA_DIR, "long_term.db")
-# 每 10 分钟做一次 episode 摘要
-EPISODE_INTERVAL_SECONDS = 600
+    globals()["SHUTDOWN_FLAG_PATH"] = os.path.join(bot_data_dir, "clean_shutdown.flag")
 
-# ========== 弹幕发送 ==========
-SEND_DANMAKU_API = "https://api.live.bilibili.com/msg/send"
-# 两次发送弹幕的最小间隔（秒）
-DANMAKU_COOLDOWN = 5
-# 礼物价值阈值（元），超过才自动感谢
-GIFT_THANK_THRESHOLD = 0.1
+    globals()["HEARTBEAT_INTERVAL"] = c.get("intervals", "heartbeat_interval")
 
-# ========== ffmpeg ==========
-FFMPEG_PATH = "ffmpeg"
+    globals()["TIP_INTERVAL_SECONDS"] = c.get("intervals", "tip_interval_seconds")
+    globals()["DRINK_WATER_INTERVAL"] = c.get("intervals", "drink_water_interval")
+    globals()["BOT_EAGERNESS"] = c.get("bot", "eagerness")
+    globals()["DEBUG_MODE"] = c.get("bot", "debug_mode")
 
-# ========== 关闭标记 ==========
-SHUTDOWN_FLAG_PATH = os.path.join(BOT_DATA_DIR, "clean_shutdown.flag")
 
-# ========== WebSocket ==========
-HEARTBEAT_INTERVAL = 30
+_init()
+del _init
 
 from prompts import BOT_PERSONA, TIP_TEMPLATES
-
-# ========== 人设 ==========
-TIP_INTERVAL_SECONDS = 900   # 15分钟让LLM考虑一次贴士
-DRINK_WATER_INTERVAL = 1800  # 30分钟喝水提醒
-BOT_EAGERNESS = 0.3          # 积极度：0=极度沉默, 1=话唠
-DEBUG_MODE = True            # 调试模式：开启后打印更多详细日志

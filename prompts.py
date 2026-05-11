@@ -1,68 +1,30 @@
 """
-所有提示词、贴士模板、欢迎词、规则引擎消息集中管理
+所有提示词、贴士模板、欢迎词、规则引擎消息 - 从 config.json 读取
 """
 import random
 
-# ========== BOT_PERSONA（人设）==========
+from config_manager import config as _config
+_c = _config
+_t = lambda k: _c.get("templates", k)
 
-BOT_PERSONA = """你是B站主播的真爱粉。
-性格：
-- 贴心暖男，时不时冒出土味情话
-- 懂梗能接梗，语气自然，像个活人在看直播
-- 当直播间氛围活跃时，你会积极参与互动，烘托气氛
-- 弹幕捉弄主播时先看会戏、配合起哄，主播真不懂了再解释
-- 很爱主播，但偶尔有点小坏
-- 尊重主播，不抢风头，不刷屏
-- 如果主播在认真唱歌，可以简单赞美一句（不要过度夸张）。如果只是哼唱或跟唱BGM，不必特别夸
-- 发言极短，通常不超过30个字，符合B站弹幕习惯
-"""
+# ========== BOT_PERSONA（人设）==========
+BOT_PERSONA = _t("bot_persona")
 
 # ========== TIP_TEMPLATES（LLM 贴士灵感池）==========
-
-TIP_TEMPLATES = [
-    # 常规定时
-    "提醒主播直播间隙记得多喝水～",
-    "提醒主播今天的首胜别忘了打哦",
-    # 互动鼓励
-    "鼓励粉丝多和主播聊聊天，分享日常～",
-    "提醒大家可以给主播点点赞，每天能点1000赞～",
-    "提醒大家关注主播的动态和最新投稿～",
-    # 唱歌
-    "夸夸主播唱歌好听，鼓励大家打call～",
-    # PK
-    "PK时间，招呼大家丢小垃圾帮主播冲冲～",
-    # 新粉
-    "欢迎新来的粉丝，主播这么呆萌，点个关注卡个灯牌支持一下～",
-    # 早晚安
-    "提醒主播早点休息，今天的直播辛苦了～",
-    "新的一天开始啦，跟主播和粉丝们说早安～",
-]
+TIP_TEMPLATES = _t("tip_templates")
 
 # ========== 欢迎词 ==========
-
-MEDAL_WELCOMES = [
-    "欢迎「{uname}」回来，老粉贴贴～",
-    "「{uname}」来啦，今天也来陪主播了呀～",
-    "惊喜发现「{uname}」，好久不见～",
-]
-
-NEW_WELCOMES = [
-    "欢迎「{uname}」光临直播间，给主播点点关注不迷路～",
-    "欢迎「{uname}」来玩呀，喜欢主播就点个关注卡个灯牌～",
-    "欢迎「{uname}」到来，一起开心听歌聊天吧～",
-    "欢迎「{uname}」～今天也是元气满满的一天呢～",
-    "欢迎「{uname}」！大家弹幕区聊起来呀！",
-]
+MEDAL_WELCOMES = _t("medal_welcomes")
+NEW_WELCOMES = _t("new_welcomes")
 
 # ========== 规则引擎消息 ==========
-
-MSG_DRINK_WATER = "【小贴士】主播，直播的时候也要记得多喝水休息一下呢～"
-MSG_FIRST_WIN = "【小贴士】主播，今天的首胜挑战可以冲一下哦～"
-MSG_PK_VOTE = "PK时间到，大家丢丢小垃圾支持一下主播～"
-MSG_MORNING = "主播，新的一天开始啦，早上好呀～"
-MSG_NIGHT = "主播，早点休息，今天的直播也很努力呢～"
-MSG_RANKING = "打人气榜时间到，大家每人最多200票，帮主播冲一波推流～"
-MSG_FLOWER = "大家送下花花哦，帮主播完成航海粉丝日付费人数任务，只要1个电池就可以啦～"
+MSG_DRINK_WATER = _t("msg_drink_water")
+MSG_FIRST_WIN = _t("msg_first_win")
+MSG_PK_VOTE = _t("msg_pk_vote")
+MSG_MORNING = _t("msg_morning")
+MSG_NIGHT = _t("msg_night")
+MSG_RANKING = _t("msg_ranking")
+MSG_FLOWER = _t("msg_flower")
 
 # ========== 发言准则（Eagerness Tiers）==========
 

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>Bili-Jarvis</title>
+<style>
+:root {
+    --bg: #1e1e1e;
+    --card: #2d2d2d;
+    --border: #3d3d3d;
+    --text: #cccccc;
+    --dim: #888888;
+    --accent: #0078d4;
+    --accent-hover: #1a8cd8;
+    --success: #4caf50;
+    --danger: #f44336;
+    --warn: #ff9800;
+    --input-bg: #252525;
+    --font: "Microsoft YaHei", "Segoe UI", sans-serif;
+    --mono: "Cascadia Code", "Consolas", monospace;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+    font-family: var(--font); background: var(--bg); color: var(--text);
+    display: flex; flex-direction: column; overflow: hidden;
+}
+
+/* Tabs */
+.tab-bar {
+    display: flex; background: #252525; border-bottom: 1px solid var(--border);
+    padding: 0 12px; flex-shrink: 0;
+}
+.tab-btn {
+    padding: 10px 18px; cursor: pointer; border: none; background: none;
+    color: var(--dim); font-size: 14px; font-family: var(--font);
+    border-bottom: 2px solid transparent; transition: all .15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Content */
+.content { display: none; flex: 1; overflow-y: auto; padding: 16px; }
+.content.active { display: block; }
+
+/* Cards */
+.card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 6px; padding: 14px; margin-bottom: 12px;
+}
+.card h3 { font-size: 13px; color: var(--dim); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .5px; }
+.card-row { display: flex; gap: 12px; flex-wrap: wrap; }
+.card-row > * { flex: 1; min-width: 200px; }
+
+/* Status badge */
+.status-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; }
+.status-live { background: var(--success); box-shadow: 0 0 6px var(--success); }
+.status-offline { background: var(--danger); }
+.stat { font-size: 12px; color: var(--dim); margin-bottom: 3px; }
+.stat-val { font-size: 16px; font-weight: 600; }
+
+/* Form */
+.form-group { margin-bottom: 10px; }
+.form-group label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 3px; }
+.form-group input, .form-group textarea, .form-group select {
+    width: 100%; padding: 6px 8px; background: var(--input-bg); color: var(--text);
+    border: 1px solid var(--border); border-radius: 4px; font-family: var(--font); font-size: 13px;
+}
+.form-group input:focus, .form-group textarea:focus { outline: none; border-color: var(--accent); }
+.form-group textarea { resize: vertical; min-height: 60px; }
+.form-inline { display: flex; gap: 8px; align-items: end; }
+.form-inline .form-group { flex: 1; }
+
+/* Buttons */
+.btn {
+    padding: 6px 16px; border: none; border-radius: 4px; cursor: pointer;
+    font-size: 13px; font-family: var(--font); transition: background .15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover { background: #e53935; }
+.btn-sm { padding: 4px 10px; font-size: 12px; margin-left: 6px; }
+
+/* Accordion */
+.accordion { margin-bottom: 8px; }
+.accordion-header {
+    background: var(--card); border: 1px solid var(--border); border-radius: 4px;
+    padding: 8px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
+    user-select: none;
+}
+.accordion-header:hover { border-color: var(--accent); }
+.accordion-body { display: none; padding: 10px; border: 1px solid var(--border); border-top: none; border-radius: 0 0 4px 4px; background: var(--input-bg); }
+.accordion-body.open { display: block; }
+
+/* Logs */
+.log-viewer {
+    font-family: var(--mono); font-size: 12px; background: #121212;
+    border: 1px solid var(--border); border-radius: 4px; padding: 8px; height: calc(100vh - 120px); overflow-y: auto; white-space: pre-wrap; word-break: break-all;
+}
+.log-line { padding: 1px 0; border-bottom: 1px solid #1a1a1a; }
+.log-controls { margin-bottom: 8px; display: flex; gap: 8px; align-items: center; }
+.log-controls label { font-size: 12px; color: var(--dim); }
+
+/* Tips panel */
+.send-item { padding: 4px 0; font-size: 12px; border-bottom: 1px solid #333; }
+.send-item .time { color: var(--dim); margin-right: 8px; }
+
+/* Template list */
+.tpl-list-item {
+    display: flex; align-items: center; padding: 4px 0; gap: 8px;
+    border-bottom: 1px solid #333;
+}
+.tpl-list-item input { flex: 1; }
+.tpl-list-item .btn-sm { flex-shrink: 0; }
+
+/* Toast */
+.toast {
+    position: fixed; top: 10px; right: 10px; padding: 8px 18px; border-radius: 4px;
+    font-size: 13px; z-index: 999; opacity: 0; transition: opacity .3s;
+    pointer-events: none;
+}
+.toast.show { opacity: 1; }
+.toast-ok { background: #2e7d32; color: #fff; }
+.toast-err { background: var(--danger); color: #fff; }
+
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #555; border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<div class="tab-bar" id="tabBar">
+    <button class="tab-btn active" data-tab="dashboard">仪表盘</button>
+    <button class="tab-btn" data-tab="settings">设置</button>
+    <button class="tab-btn" data-tab="templates">模板</button>
+    <button class="tab-btn" data-tab="logs">日志</button>
+</div>
+
+<div class="content active" id="tab-dashboard">
+    <div class="card" style="margin-bottom:16px">
+        <span class="status-dot" id="liveDot"></span>
+        <span id="liveStatus" style="font-size:16px;font-weight:600">--</span>
+        <span id="liveExtra" style="font-size:12px;color:var(--dim);margin-left:12px"></span>
+        <button class="btn btn-danger btn-sm" id="btnRestart" style="float:right" onclick="restartBot()">重启 Bot</button>
+    </div>
+    <div class="card-row">
+        <div class="card">
+            <h3>直播间</h3>
+            <div class="stat" id="statRoom">--</div>
+            <div class="stat" id="statTitle">--</div>
+        </div>
+        <div class="card">
+            <h3>Session</h3>
+            <div class="stat" id="statSession">--</div>
+            <div class="stat" id="statUptime">运行时间: --</div>
+        </div>
+        <div class="card">
+            <h3>画面描述</h3>
+            <div class="stat" id="statVision" style="white-space:pre-wrap;max-height:100px;overflow-y:auto">--</div>
+        </div>
+    </div>
+    <div class="card">
+        <h3>最近发言</h3>
+        <div id="recentSends">--</div>
+    </div>
+</div>
+
+<div class="content" id="tab-settings">
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">直播间配置</div>
+        <div class="accordion-body open">
+            <div class="form-group"><label>直播间 ID</label><input id="s_room_id" type="number"></div>
+            <div class="form-group"><label>SESSDATA</label><input id="s_sessdata"></div>
+            <div class="form-group"><label>BILI_JCT</label><input id="s_bili_jct"></div>
+            <div class="form-group"><label>BUVID3</label><input id="s_buvid3"></div>
+        </div>
+    </div>
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">视觉模型</div>
+        <div class="accordion-body">
+            <div class="form-group"><label>API 端点</label><input id="s_vis_url"></div>
+            <div class="form-group"><label>API Key</label><input id="s_vis_key"></div>
+            <div class="form-group"><label>模型名</label><input id="s_vis_model"></div>
+        </div>
+    </div>
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">分析模型</div>
+        <div class="accordion-body">
+            <div class="form-group"><label>API 端点</label><input id="s_ana_url"></div>
+            <div class="form-group"><label>API Key</label><input id="s_ana_key"></div>
+            <div class="form-group"><label>模型名</label><input id="s_ana_model"></div>
+            <div class="form-group"><label>Episode 模型</label><input id="s_ana_ep"></div>
+            <div class="form-group"><label>去重模型</label><input id="s_ana_dup"></div>
+            <div class="form-group"><label>去重窗口（秒）</label><input id="s_ana_dup_win" type="number"></div>
+        </div>
+    </div>
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">回复模型</div>
+        <div class="accordion-body">
+            <div class="form-group"><label>API 端点</label><input id="s_rep_url"></div>
+            <div class="form-group"><label>API Key</label><input id="s_rep_key"></div>
+            <div class="form-group"><label>模型名</label><input id="s_rep_model"></div>
+        </div>
+    </div>
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">嵌入模型</div>
+        <div class="accordion-body">
+            <div class="form-group"><label>API 端点</label><input id="s_emb_url"></div>
+            <div class="form-group"><label>API Key</label><input id="s_emb_key"></div>
+            <div class="form-group"><label>模型名</label><input id="s_emb_model"></div>
+        </div>
+    </div>
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">时间参数</div>
+        <div class="accordion-body">
+            <div class="form-inline">
+                <div class="form-group"><label>视觉采样间隔（秒）</label><input id="s_int_vis" type="number"></div>
+                <div class="form-group"><label>Episode 间隔（秒）</label><input id="s_int_ep" type="number"></div>
+                <div class="form-group"><label>贴士间隔（秒）</label><input id="s_int_tip" type="number"></div>
+            </div>
+            <div class="form-inline">
+                <div class="form-group"><label>喝水提醒间隔（秒）</label><input id="s_int_drink" type="number"></div>
+                <div class="form-group"><label>弹幕冷却（秒）</label><input id="s_int_dm" type="number"></div>
+                <div class="form-group"><label>心跳间隔（秒）</label><input id="s_int_hb" type="number"></div>
+            </div>
+            <div class="form-group"><label>礼物感谢阈值（元）</label><input id="s_int_gift" type="number" step="0.01"></div>
+        </div>
+    </div>
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.nextElementSibling.classList.toggle('open')">Bot 设置</div>
+        <div class="accordion-body">
+            <div class="form-group"><label>积极度（0-1）</label><input id="s_bot_eag" type="number" min="0" max="1" step="0.05"></div>
+            <div class="form-group"><label><input id="s_bot_debug" type="checkbox" style="width:auto;margin-right:6px">调试模式</label></div>
+        </div>
+    </div>
+    <div style="margin-top:12px">
+        <button class="btn btn-primary" onclick="saveSettings()">保存设置</button>
+        <span style="font-size:12px;color:var(--warn);margin-left:8px" id="settingsHint"></span>
+    </div>
+</div>
+
+<div class="content" id="tab-templates">
+    <h3 style="margin-bottom:10px">Bot 人设 (BOT_PERSONA)</h3>
+    <div class="form-group">
+        <textarea id="t_persona" rows="6"></textarea>
+    </div>
+
+    <h3 style="margin:16px 0 10px">贴士模板 (TIP_TEMPLATES) <button class="btn btn-sm btn-primary" onclick="addTpl()">+ 添加</button></h3>
+    <div id="tplList"></div>
+
+    <h3 style="margin:16px 0 10px">老粉欢迎词 (MEDAL_WELCOMES) <button class="btn btn-sm btn-primary" onclick="addMw()">+</button></h3>
+    <div id="mwList"></div>
+
+    <h3 style="margin:16px 0 10px">新粉欢迎词 (NEW_WELCOMES) <button class="btn btn-sm btn-primary" onclick="addNw()">+</button></h3>
+    <div id="nwList"></div>
+
+    <h3 style="margin:16px 0 10px">规则引擎消息</h3>
+    <div class="form-group"><label>喝水提醒</label><input id="t_msg_drink"></div>
+    <div class="form-group"><label>首胜提醒</label><input id="t_msg_win"></div>
+    <div class="form-group"><label>PK 投票</label><input id="t_msg_pk"></div>
+    <div class="form-group"><label>早安</label><input id="t_msg_morning"></div>
+    <div class="form-group"><label>晚安</label><input id="t_msg_night"></div>
+    <div class="form-group"><label>人气榜</label><input id="t_msg_ranking"></div>
+    <div class="form-group"><label>送花提醒</label><input id="t_msg_flower"></div>
+
+    <div style="margin-top:12px">
+        <button class="btn btn-primary" onclick="saveTemplates()">保存模板</button>
+        <span style="font-size:12px;color:var(--warn);margin-left:8px" id="templatesHint"></span>
+    </div>
+</div>
+
+<div class="content" id="tab-logs">
+    <div class="log-controls">
+        <label><input type="checkbox" id="logPause" onchange="toggleLogPause()"> 暂停</label>
+        <label><input type="checkbox" id="logAutoScroll" checked> 自动滚底</label>
+        <button class="btn btn-sm" onclick="clearLogs()">清屏</button>
+    </div>
+    <div class="log-viewer" id="logViewer"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// Tab switching
+document.getElementById('tabBar').addEventListener('click', e => {
+    if (e.target.classList.contains('tab-btn')) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        document.querySelectorAll('.content').forEach(c => c.classList.remove('active'));
+        document.getElementById('tab-' + e.target.dataset.tab).classList.add('active');
+    }
+});
+
+// Toast
+function showToast(msg, ok = true) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.className = `toast ${ok ? 'toast-ok' : 'toast-err'} show`;
+    setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+// ========== Dashboard ==========
+let _allConfig = null;
+
+async function loadConfigForUI() {
+    _allConfig = await pywebview.api.get_config();
+    if (!_allConfig) return;
+    const c = _allConfig;
+    // Room
+    document.getElementById('s_room_id').value = c.room?.room_id ?? '';
+    document.getElementById('s_sessdata').value = c.room?.sessdata ?? '';
+    document.getElementById('s_bili_jct').value = c.room?.bili_jct ?? '';
+    document.getElementById('s_buvid3').value = c.room?.buvid3 ?? '';
+    // Vision
+    document.getElementById('s_vis_url').value = c.vision?.base_url ?? '';
+    document.getElementById('s_vis_key').value = c.vision?.api_key ?? '';
+    document.getElementById('s_vis_model').value = c.vision?.model ?? '';
+    // Analysis
+    document.getElementById('s_ana_url').value = c.analysis?.base_url ?? '';
+    document.getElementById('s_ana_key').value = c.analysis?.api_key ?? '';
+    document.getElementById('s_ana_model').value = c.analysis?.model ?? '';
+    document.getElementById('s_ana_ep').value = c.analysis?.episode_model ?? '';
+    document.getElementById('s_ana_dup').value = c.analysis?.dup_check_model ?? '';
+    document.getElementById('s_ana_dup_win').value = c.analysis?.dup_check_window ?? 60;
+    // Reply
+    document.getElementById('s_rep_url').value = c.reply?.base_url ?? '';
+    document.getElementById('s_rep_key').value = c.reply?.api_key ?? '';
+    document.getElementById('s_rep_model').value = c.reply?.model ?? '';
+    // Embedding
+    document.getElementById('s_emb_url').value = c.embedding?.base_url ?? '';
+    document.getElementById('s_emb_key').value = c.embedding?.api_key ?? '';
+    document.getElementById('s_emb_model').value = c.embedding?.model ?? '';
+    // Intervals
+    document.getElementById('s_int_vis').value = c.intervals?.vision_clip_seconds ?? 20;
+    document.getElementById('s_int_ep').value = c.intervals?.episode_interval_seconds ?? 600;
+    document.getElementById('s_int_tip').value = c.intervals?.tip_interval_seconds ?? 900;
+    document.getElementById('s_int_drink').value = c.intervals?.drink_water_interval ?? 1800;
+    document.getElementById('s_int_dm').value = c.intervals?.danmaku_cooldown ?? 5;
+    document.getElementById('s_int_hb').value = c.intervals?.heartbeat_interval ?? 30;
+    document.getElementById('s_int_gift').value = c.intervals?.gift_thank_threshold ?? 0.1;
+    // Bot
+    document.getElementById('s_bot_eag').value = c.bot?.eagerness ?? 0.3;
+    document.getElementById('s_bot_debug').checked = c.bot?.debug_mode ?? true;
+    // Templates
+    loadTemplateUI(c);
+}
+
+function loadTemplateUI(c) {
+    const t = c.templates || {};
+    document.getElementById('t_persona').value = t.bot_persona ?? '';
+    document.getElementById('t_msg_drink').value = t.msg_drink_water ?? '';
+    document.getElementById('t_msg_win').value = t.msg_first_win ?? '';
+    document.getElementById('t_msg_pk').value = t.msg_pk_vote ?? '';
+    document.getElementById('t_msg_morning').value = t.msg_morning ?? '';
+    document.getElementById('t_msg_night').value = t.msg_night ?? '';
+    document.getElementById('t_msg_ranking').value = t.msg_ranking ?? '';
+    document.getElementById('t_msg_flower').value = t.msg_flower ?? '';
+    renderList('tplList', t.tip_templates || []);
+    renderList('mwList', t.medal_welcomes || []);
+    renderList('nwList', t.new_welcomes || []);
+}
+
+function renderList(containerId, items) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = items.map((item, i) =>
+        `<div class="tpl-list-item">
+            <input value="${escapeHtml(item)}" data-idx="${i}">
+            <button class="btn btn-sm btn-danger" onclick="delItem('${containerId}', ${i})">×</button>
+        </div>`
+    ).join('');
+}
+
+function escapeHtml(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function addTpl() { addItem('tplList'); }
+function addMw() { addItem('mwList'); }
+function addNw() { addItem('nwList'); }
+
+function addItem(containerId) {
+    const container = document.getElementById(containerId);
+    const div = document.createElement('div');
+    div.className = 'tpl-list-item';
+    div.innerHTML = `<input value="" data-idx="${container.children.length}"><button class="btn btn-sm btn-danger" onclick="this.parentElement.remove()">×</button>`;
+    container.appendChild(div);
+}
+
+function delItem(containerId, idx) {
+    document.getElementById(containerId).children[idx].remove();
+    // Re-index
+    [...document.getElementById(containerId).children].forEach((c, i) => {
+        const inp = c.querySelector('input');
+        if (inp) inp.dataset.idx = i;
+    });
+}
+
+function collectList(containerId) {
+    return [...document.getElementById(containerId).querySelectorAll('input')].map(inp => inp.value).filter(Boolean);
+}
+
+async function saveSettings() {
+    const data = {
+        room: { room_id: +document.getElementById('s_room_id').value, sessdata: document.getElementById('s_sessdata').value, bili_jct: document.getElementById('s_bili_jct').value, buvid3: document.getElementById('s_buvid3').value },
+        vision: { base_url: document.getElementById('s_vis_url').value, api_key: document.getElementById('s_vis_key').value, model: document.getElementById('s_vis_model').value },
+        analysis: { base_url: document.getElementById('s_ana_url').value, api_key: document.getElementById('s_ana_key').value, model: document.getElementById('s_ana_model').value, episode_model: document.getElementById('s_ana_ep').value, dup_check_model: document.getElementById('s_ana_dup').value, dup_check_window: +document.getElementById('s_ana_dup_win').value },
+        reply: { base_url: document.getElementById('s_rep_url').value, api_key: document.getElementById('s_rep_key').value, model: document.getElementById('s_rep_model').value },
+        embedding: { base_url: document.getElementById('s_emb_url').value, api_key: document.getElementById('s_emb_key').value, model: document.getElementById('s_emb_model').value },
+        intervals: { vision_clip_seconds: +document.getElementById('s_int_vis').value, episode_interval_seconds: +document.getElementById('s_int_ep').value, tip_interval_seconds: +document.getElementById('s_int_tip').value, drink_water_interval: +document.getElementById('s_int_drink').value, danmaku_cooldown: +document.getElementById('s_int_dm').value, heartbeat_interval: +document.getElementById('s_int_hb').value, gift_thank_threshold: +document.getElementById('s_int_gift').value },
+        bot: { eagerness: +document.getElementById('s_bot_eag').value, debug_mode: document.getElementById('s_bot_debug').checked },
+    };
+    try {
+        await pywebview.api.save_settings(data);
+        _allConfig = { ..._allConfig, ...data };
+        document.getElementById('settingsHint').textContent = '已保存，重启 Bot 后生效';
+        showToast('设置已保存');
+    } catch (e) {
+        showToast('保存失败: ' + e, false);
+    }
+}
+
+async function saveTemplates() {
+    const data = {
+        bot_persona: document.getElementById('t_persona').value,
+        tip_templates: collectList('tplList'),
+        medal_welcomes: collectList('mwList'),
+        new_welcomes: collectList('nwList'),
+        msg_drink_water: document.getElementById('t_msg_drink').value,
+        msg_first_win: document.getElementById('t_msg_win').value,
+        msg_pk_vote: document.getElementById('t_msg_pk').value,
+        msg_morning: document.getElementById('t_msg_morning').value,
+        msg_night: document.getElementById('t_msg_night').value,
+        msg_ranking: document.getElementById('t_msg_ranking').value,
+        msg_flower: document.getElementById('t_msg_flower').value,
+    };
+    try {
+        await pywebview.api.save_templates(data);
+        if (_allConfig) _allConfig.templates = data;
+        document.getElementById('templatesHint').textContent = '已保存，重启 Bot 后生效';
+        showToast('模板已保存');
+    } catch (e) {
+        showToast('保存失败: ' + e, false);
+    }
+}
+
+async function restartBot() {
+    try {
+        await pywebview.api.restart_bot();
+        showToast('正在重启 Bot...');
+    } catch (e) {
+        showToast('重启失败: ' + e, false);
+    }
+}
+
+// ========== Status polling ==========
+function fmtUptime(s) {
+    if (s === undefined || s === null) return '--';
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60);
+    return `${h}h ${m}m`;
+}
+
+async function pollStatus() {
+    try {
+        const s = await pywebview.api.get_status();
+        if (!s) return;
+        const dot = document.getElementById('liveDot');
+        dot.className = 'status-dot ' + (s.is_live ? 'status-live' : 'status-offline');
+        document.getElementById('liveStatus').textContent = s.is_live ? '直播中' : '未开播';
+        document.getElementById('liveExtra').textContent =
+            (s.room_title ? '标题: ' + s.room_title + ' | ' : '') +
+            'Session: ' + (s.session_id || '--');
+        document.getElementById('statRoom').textContent = '房间 ID: ' + (s.room_id || '--');
+        document.getElementById('statTitle').textContent = s.room_title || '--';
+        document.getElementById('statSession').textContent = 'Session #' + (s.session_id || '--');
+        document.getElementById('statUptime').textContent = '运行时间: ' + fmtUptime(s.uptime_seconds);
+        const vis = s.current_vision;
+        document.getElementById('statVision').textContent = vis ? vis.slice(0, 200) : '--';
+
+        const sends = s.latest_sends || [];
+        const div = document.getElementById('recentSends');
+        if (sends.length === 0) { div.textContent = '暂无发言'; }
+        else {
+            div.innerHTML = sends.map(x => `<div class="send-item"><span class="time">${x[0]}</span>${escapeHtml(x[1])}</div>`).join('');
+        }
+    } catch (e) { /* silent */ }
+}
+
+// ========== Logs ==========
+let _logLineCount = 0;
+let _logPaused = false;
+
+function toggleLogPause() { _logPaused = document.getElementById('logPause').checked; }
+
+function clearLogs() {
+    document.getElementById('logViewer').innerHTML = '';
+    _logLineCount = 0;
+}
+
+async function pollLogs() {
+    if (_logPaused) return;
+    try {
+        const logs = await pywebview.api.get_logs(_logLineCount);
+        if (!logs || logs.length === 0) return;
+        const viewer = document.getElementById('logViewer');
+        const autoScroll = document.getElementById('logAutoScroll').checked;
+        for (const [ts, msg] of logs) {
+            const div = document.createElement('div');
+            div.className = 'log-line';
+            div.textContent = `[${ts}] ${msg}`;
+            viewer.appendChild(div);
+        }
+        _logLineCount += logs.length;
+        if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
+    } catch (e) { /* silent */ }
+}
+
+// ========== Init ==========
+async function init() {
+    await loadConfigForUI();
+    setInterval(pollStatus, 2000);
+    setInterval(pollLogs, 2000);
+    pollStatus();
+    pollLogs();
+}
+
+init();
+</script>
+</body>
+</html>

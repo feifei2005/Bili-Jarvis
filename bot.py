@@ -52,6 +52,7 @@ from vision_worker import get_stream_url, capture_clip, describe_video
 from brain_worker import think_and_reply, send_danmaku, _send_worker
 from tip_scheduler import TipScheduler
 from log_util import init_log, log
+from bot_state import global_state
 
 # ========== 复用 live_monitor.py 的二进制协议 ==========
 _MIXIN_KEY_ENC_TAB = [
@@ -221,6 +222,9 @@ async def _perform_down_cleanup(state: dict):
     state["is_live"] = False
     state["current_vision"] = None
     _write_shutdown_flag(True)
+    bs = global_state
+    if bs:
+        bs.update(is_live=False)
 
 async def _cleanup_abnormal_exit(ws_session: aiohttp.ClientSession, state: dict):
     if _read_shutdown_flag():
@@ -340,6 +344,8 @@ async def _process_clip(session: aiohttp.ClientSession, state: dict, clip_path: 
         desc = await describe_video([clip_path])
         if desc:
             state["current_vision"] = desc
+            if global_state:
+                global_state.update(current_vision=desc[:200])
             if state.get("session_id"):
                 save_vision(state["session_id"], desc)
             print(f"[{ts()}] [Vision] {desc[:80]}...")
@@ -740,6 +746,8 @@ async def _handle_message(data: bytes, session: aiohttp.ClientSession, state: di
                 state["last_episode_time"] = state["live_start_time"]
                 state["session_id"] = start_session()
                 _write_shutdown_flag(False)
+                if global_state:
+                    global_state.update(is_live=True, session_id=state["session_id"])
                 print(f"[{ts()}] [Bot] 🟢 开播 (session={state['session_id']})")
                 log(f"[Live] 开播 session={state['session_id']}")
 
@@ -786,11 +794,15 @@ async def _tip_loop(session: aiohttp.ClientSession, state: dict):
 
 # ========== 主循环 ==========
 
-async def main():
+async def main(bot_state=None):
     init_short_term_db()
     init_long_term_db()
     cleanup_expired_memos()
     init_log(BOT_DATA_DIR)
+
+    bs = bot_state or global_state
+    if bs:
+        bs.update(room_id=ROOM_ID)
 
     scheduler = TipScheduler()
 
@@ -822,6 +834,8 @@ async def main():
         await _cleanup_abnormal_exit(session, state)
 
         while state["running"]:
+            if bs and bs.restart_requested:
+                break
             try:
                 info = await _get_room_play_info(session, ROOM_ID)
                 real_id = info["room_id"]
@@ -829,6 +843,8 @@ async def main():
                 try:
                     room_info = await _get_room_info(session, ROOM_ID)
                     state["room_title"] = room_info.get("title", "")
+                    if global_state:
+                        global_state.update(room_title=state["room_title"])
                 except Exception as e:
                     print(f"[{ts()}] [Bot] 获取标题失败: {e}")
                     log(f"[ERROR] [Bot] 获取标题失败: {type(e).__name__}: {e}")
@@ -843,6 +859,8 @@ async def main():
                         state["last_episode_time"] = state["live_start_time"]
                         state["session_id"] = start_session()
                         _write_shutdown_flag(False)
+                        if global_state:
+                            global_state.update(is_live=True, session_id=state["session_id"])
                         scheduler.first_win_done = False
                         print(f"[{ts()}] [Bot] 检测到正在直播 (session={state['session_id']})")
                 else:
