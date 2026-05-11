@@ -1,4 +1,4 @@
-name: Build EXE
+name: Build
 
 on:
   push:
@@ -7,7 +7,10 @@ on:
 
 jobs:
   build:
-    runs-on: windows-latest
+    strategy:
+      matrix:
+        os: [windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
 
     steps:
       - uses: actions/checkout@v4
@@ -18,15 +21,22 @@ jobs:
           python-version: "3.13"
 
       - name: Install dependencies
-        run: |
-          pip install aiohttp brotli httpx pywebview pyinstaller
+        run: pip install aiohttp brotli httpx pywebview pyinstaller
 
-      - name: Build EXE
-        run: |
-          pyinstaller --onefile --noconsole --add-data "static;static" --name Bili-Jarvis launcher.pyw
+      - name: Install macOS extras
+        if: runner.os == 'macOS'
+        run: pip install pyobjc-framework-WebKit 2>/dev/null || true
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        run: pyinstaller --onefile --noconsole --add-data "static;static" --name Bili-Jarvis launcher.pyw
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        run: pyinstaller --onefile --windowed --add-data "static:static" --name Bili-Jarvis launcher.pyw
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Bili-Jarvis
-          path: dist/Bili-Jarvis.exe
+          name: Bili-Jarvis-${{ runner.os }}
+          path: dist/*
