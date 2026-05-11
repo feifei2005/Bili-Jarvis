@@ -87,13 +87,15 @@ DEFAULT_CONFIG = {
             "欢迎「{uname}」～今天也是元气满满的一天呢～",
             "欢迎「{uname}」！大家弹幕区聊起来呀！",
         ],
-        "msg_drink_water": "【小贴士】主播，直播的时候也要记得多喝水休息一下呢～",
-        "msg_first_win": "【小贴士】主播，今天的首胜挑战可以冲一下哦～",
-        "msg_pk_vote": "PK时间到，大家丢丢小垃圾支持一下主播～",
-        "msg_morning": "主播，新的一天开始啦，早上好呀～",
-        "msg_night": "主播，早点休息，今天的直播也很努力呢～",
-        "msg_ranking": "打人气榜时间到，大家每人最多200票，帮主播冲一波推流～",
-        "msg_flower": "大家送下花花哦，帮主播完成航海粉丝日付费人数任务，只要1个电池就可以啦～",
+        "rules": [
+            {"id": "drink_water", "msg": "【小贴士】主播，直播的时候也要记得多喝水休息一下呢～", "trigger": "interval", "interval": 1800},
+            {"id": "flower", "msg": "大家送下花花哦，帮主播完成航海粉丝日付费人数任务，只要1个电池就可以啦～", "trigger": "interval", "interval": 600},
+            {"id": "first_win", "msg": "【小贴士】主播，今天的首胜挑战可以冲一下哦～", "trigger": "first_win"},
+            {"id": "pk_vote", "msg": "PK时间到，大家丢丢小垃圾支持一下主播～", "trigger": "pk", "interval": 300},
+            {"id": "morning", "msg": "主播，新的一天开始啦，早上好呀～", "trigger": "morning"},
+            {"id": "night", "msg": "主播，早点休息，今天的直播也很努力呢～", "trigger": "night"},
+            {"id": "ranking", "msg": "打人气榜时间到，大家每人最多200票，帮主播冲一波推流～", "trigger": "ranking"},
+        ],
     },
 }
 

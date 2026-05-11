@@ -18,13 +18,16 @@ MEDAL_WELCOMES = _t("medal_welcomes")
 NEW_WELCOMES = _t("new_welcomes")
 
 # ========== 规则引擎消息 ==========
-MSG_DRINK_WATER = _t("msg_drink_water")
-MSG_FIRST_WIN = _t("msg_first_win")
-MSG_PK_VOTE = _t("msg_pk_vote")
-MSG_MORNING = _t("msg_morning")
-MSG_NIGHT = _t("msg_night")
-MSG_RANKING = _t("msg_ranking")
-MSG_FLOWER = _t("msg_flower")
+RULES = _t("rules")
+
+# 兼容旧引用
+MSG_DRINK_WATER = ""
+MSG_FIRST_WIN = ""
+MSG_PK_VOTE = ""
+MSG_MORNING = ""
+MSG_NIGHT = ""
+MSG_RANKING = ""
+MSG_FLOWER = ""
 
 # ========== 发言准则（Eagerness Tiers）==========
 
