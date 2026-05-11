@@ -112,6 +112,29 @@ def end_session(session_id: int):
     conn.close()
 
 
+def get_last_live_session():
+    conn = sqlite3.connect(MEMORY_DB_PATH)
+    row = conn.execute(
+        "SELECT id FROM sessions WHERE status='live' ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    conn.close()
+    return row[0] if row else None
+
+
+def cleanup_leftover_clips():
+    import glob as _glob
+    from bot_config import BOT_DATA_DIR
+    for pattern in ("*.mp4", "*.dm.json"):
+        for f in _glob.glob(os.path.join(BOT_DATA_DIR, pattern)):
+            try:
+                os.remove(f)
+                print(f"[{ts()}] [Cleanup] 已删除残留文件: {os.path.basename(f)}")
+                log(f"[Cleanup] 删除残留文件: {os.path.basename(f)}")
+            except Exception as e:
+                print(f"[{ts()}] [Cleanup] 删除残留文件失败: {f}: {e}")
+                log(f"[ERROR] [Cleanup] 删除残留文件失败: {f}: {type(e).__name__}: {e}")
+
+
 def save_vision(session_id: int, description: str):
     conn = sqlite3.connect(MEMORY_DB_PATH)
     conn.execute(

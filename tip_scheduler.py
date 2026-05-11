@@ -10,7 +10,9 @@ from typing import Optional
 
 from bot_config import DRINK_WATER_INTERVAL, ts
 from memory_manager import get_active_memos, on_visitor_enter
-from prompts import MSG_DRINK_WATER, MSG_FIRST_WIN, MSG_PK_VOTE, MSG_MORNING, MSG_NIGHT, MSG_RANKING, get_welcome_msg
+from prompts import MSG_DRINK_WATER, MSG_FIRST_WIN, MSG_PK_VOTE, MSG_MORNING, MSG_NIGHT, MSG_RANKING, MSG_FLOWER, get_welcome_msg
+
+FLOWER_INTERVAL_SECONDS = 600
 
 
 class TipScheduler:
@@ -26,6 +28,7 @@ class TipScheduler:
             "night": now,
             "ranking": now,
             "raffle_remind": now,
+            "flower": now,
         }
         self.deferred: list[str] = []  # 忙碌时暂存
         self.first_win_done: bool = False
@@ -120,6 +123,12 @@ class TipScheduler:
         # 喝水 - 每30分钟
         if self._since("drink_water") >= DRINK_WATER_INTERVAL:
             msg = self._try_send("drink_water", MSG_DRINK_WATER, is_periodic=True)
+            if msg:
+                tips.append(msg)
+
+        # 送花 - 每10分钟
+        if self._since("flower") >= FLOWER_INTERVAL_SECONDS:
+            msg = self._try_send("flower", MSG_FLOWER, is_periodic=True)
             if msg:
                 tips.append(msg)
 

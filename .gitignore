@@ -1,0 +1,4 @@
+bot_data/
+*.mp4
+*.dm.json
+clean_shutdown.flag

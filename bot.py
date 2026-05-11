@@ -37,6 +37,7 @@ from bot_config import (
     HEARTBEAT_INTERVAL, EPISODE_INTERVAL_SECONDS,
     VISION_CLIP_SECONDS, TIP_INTERVAL_SECONDS, DANMAKU_COOLDOWN,
     DEBUG_MODE, ts, BOT_DATA_DIR, GIFT_THANK_THRESHOLD,
+    SHUTDOWN_FLAG_PATH,
 )
 from memory_manager import (
     init_short_term_db, init_long_term_db,
@@ -45,6 +46,7 @@ from memory_manager import (
     save_episode, generate_episode, consolidate_session,
     on_visitor_enter, on_visitor_speak, cleanup_expired_memos,
     is_blacklisted, add_to_blacklist,
+    get_last_live_session, cleanup_leftover_clips,
 )
 from vision_worker import get_stream_url, capture_clip, describe_video
 from brain_worker import think_and_reply, send_danmaku, _send_worker
@@ -162,6 +164,116 @@ async def _get_room_info(session, room_id):
 
 # ========== 后台任务 ==========
 
+def _read_shutdown_flag() -> bool:
+    try:
+        with open(SHUTDOWN_FLAG_PATH, "r") as f:
+            return f.read().strip() == "1"
+    except FileNotFoundError:
+        return True
+
+def _write_shutdown_flag(clean: bool):
+    os.makedirs(BOT_DATA_DIR, exist_ok=True)
+    with open(SHUTDOWN_FLAG_PATH, "w") as f:
+        f.write("1" if clean else "0")
+
+async def _perform_down_cleanup(state: dict):
+    if not state.get("is_live"):
+        return
+
+    session_id = state.get("session_id")
+    if not session_id:
+        state["is_live"] = False
+        state["current_vision"] = None
+        return
+
+    print(f"[{ts()}] [Bot] 🔴 下播，开始深度整理...")
+    log(f"[Live] 下播 session={session_id}")
+
+    pending = [t for t in state.get("pending_clips", []) if not t.done()]
+    if pending:
+        print(f"[{ts()}] [Bot] 等待 {len(pending)} 个进行中的片段分析...")
+        await asyncio.gather(*pending, return_exceptions=True)
+    state["pending_clips"].clear()
+    end_session(session_id)
+
+    window_start = state.get("last_episode_time", state.get("live_start_time", ""))
+    window_end = datetime.now().isoformat()
+    try:
+        window_data = get_window_data(session_id, window_start)
+        episode = generate_episode(window_data)
+        if episode:
+            save_episode(
+                session_id, window_start, window_end,
+                episode.get("title", ""), episode.get("summary", ""),
+                episode.get("keywords", []), episode.get("participants", []),
+            )
+    except Exception:
+        pass
+
+    try:
+        consolidate_session(session_id)
+        print(f"[{ts()}] [Bot] 深度整理完成，原始数据已清理")
+        log(f"[Memory] 深度整理完成 session={session_id}")
+    except Exception as e:
+        print(f"[{ts()}] [Bot] 深度整理失败: {e}")
+        log(f"[ERROR] [Memory] 深度整理失败: {type(e).__name__}: {e}")
+
+    state["is_live"] = False
+    state["current_vision"] = None
+    _write_shutdown_flag(True)
+
+async def _cleanup_abnormal_exit(ws_session: aiohttp.ClientSession, state: dict):
+    if _read_shutdown_flag():
+        return
+
+    print(f"[{ts()}] [Bot] 检测到上一次异常退出，开始残留清理...")
+    log("[Bot] 检测到异常退出残留")
+
+    try:
+        info = await _get_room_play_info(ws_session, ROOM_ID)
+        if info.get("live_status") == 1:
+            print(f"[{ts()}] [Bot] 当前正在直播，等待下播后整理...")
+            log("[Bot] 等待下播以完成残留整理")
+            while True:
+                await asyncio.sleep(30)
+                try:
+                    info = await _get_room_play_info(ws_session, ROOM_ID)
+                    if info.get("live_status") != 1:
+                        break
+                except Exception:
+                    await asyncio.sleep(30)
+    except Exception as e:
+        print(f"[{ts()}] [Bot] 检查直播状态失败: {e}，直接执行清理")
+        log(f"[ERROR] [Bot] 检查直播状态失败: {type(e).__name__}: {e}")
+
+    last_session_id = get_last_live_session()
+    if last_session_id is not None:
+        state["session_id"] = last_session_id
+        state["is_live"] = True
+        await _perform_down_cleanup(state)
+    else:
+        print(f"[{ts()}] [Bot] 未找到未关闭的 session，跳过整理")
+
+    cleanup_leftover_clips()
+    _write_shutdown_flag(True)
+    print(f"[{ts()}] [Bot] 残留清理完成")
+    log("[Bot] 残留清理完成")
+
+async def _live_status_poller(ws_session: aiohttp.ClientSession, state: dict):
+    while state["running"] and state.get("is_live"):
+        await asyncio.sleep(60)
+        if not state.get("is_live"):
+            break
+        try:
+            info = await _get_room_play_info(ws_session, ROOM_ID)
+            if info.get("live_status") != 1:
+                print(f"[{ts()}] [Bot] 轮询检测到已下播，触发整理...")
+                log("[Bot] 轮询检测到已下播")
+                await _perform_down_cleanup(state)
+                break
+        except Exception as e:
+            log(f"[ERROR] [Poll] 轮询异常: {type(e).__name__}: {e}")
+
 async def _heartbeat_loop(ws):
     hb = _pack(b'[object Object]', PROTO_HEARTBEAT, DP_HEARTBEAT)
     while True:
@@ -217,6 +329,13 @@ async def _sampler_loop(session: aiohttp.ClientSession, state: dict):
 
 async def _process_clip(session: aiohttp.ClientSession, state: dict, clip_path: str):
     """处理单个 30 秒视频片段：视觉描述 → LLM分析 → LLM回复"""
+    if not state.get("is_live"):
+        try:
+            os.remove(clip_path)
+        except Exception:
+            pass
+        return
+
     try:
         desc = await describe_video([clip_path])
         if desc:
@@ -614,52 +733,18 @@ async def _handle_message(data: bytes, session: aiohttp.ClientSession, state: di
                     log(f"[ERROR] [Welcome] 欢迎逻辑异常 (uname={raw_uname}): {type(e).__name__}: {e}")
 
             elif cmd == "LIVE":
+                if state.get("is_live") and state.get("session_id"):
+                    await _perform_down_cleanup(state)
                 state["is_live"] = True
                 state["live_start_time"] = datetime.now().isoformat()
                 state["last_episode_time"] = state["live_start_time"]
                 state["session_id"] = start_session()
+                _write_shutdown_flag(False)
                 print(f"[{ts()}] [Bot] 🟢 开播 (session={state['session_id']})")
                 log(f"[Live] 开播 session={state['session_id']}")
 
             elif cmd == "PREPARING":
-                if state.get("is_live"):
-                    print(f"[{ts()}] [Bot] 🔴 下播，开始深度整理...")
-                    log(f"[Live] 下播 session={state['session_id']}")
-
-                    # 等待进行中的视觉分析任务完成
-                    pending = [t for t in state.get("pending_clips", []) if not t.done()]
-                    if pending:
-                        print(f"[{ts()}] [Bot] 等待 {len(pending)} 个进行中的片段分析...")
-                        await asyncio.gather(*pending, return_exceptions=True)
-                    state["pending_clips"].clear()
-                    end_session(state["session_id"])
-
-                    # 先做最后一次 episode
-                    window_start = state.get("last_episode_time", state.get("live_start_time", ""))
-                    window_end = datetime.now().isoformat()
-                    try:
-                        window_data = get_window_data(state["session_id"], window_start)
-                        episode = generate_episode(window_data)
-                        if episode:
-                            save_episode(
-                                state["session_id"], window_start, window_end,
-                                episode.get("title", ""), episode.get("summary", ""),
-                                episode.get("keywords", []), episode.get("participants", []),
-                            )
-                    except Exception:
-                        pass
-
-                    # 深度整理 + 清理原始数据
-                    try:
-                        consolidate_session(state["session_id"])
-                        print(f"[{ts()}] [Bot] 深度整理完成，原始数据已清理")
-                        log(f"[Memory] 深度整理完成 session={state['session_id']}")
-                    except Exception as e:
-                        print(f"[{ts()}] [Bot] 深度整理失败: {e}")
-                        log(f"[ERROR] [Memory] 深度整理失败: {type(e).__name__}: {e}")
-
-                    state["is_live"] = False
-                    state["current_vision"] = None
+                await _perform_down_cleanup(state)
 
 
 # ========== 贴士循环 ==========
@@ -734,6 +819,8 @@ async def main():
         welcome_task = asyncio.create_task(_welcome_batcher(session, state))
         send_task = asyncio.create_task(_send_worker(session, ROOM_ID))
 
+        await _cleanup_abnormal_exit(session, state)
+
         while state["running"]:
             try:
                 info = await _get_room_play_info(session, ROOM_ID)
@@ -749,18 +836,18 @@ async def main():
                 # 每次重连都检查直播状态
                 if info.get("live_status") == 1:
                     if not state["is_live"]:
+                        if state.get("session_id"):
+                            await _perform_down_cleanup(state)
                         state["is_live"] = True
                         state["live_start_time"] = datetime.now().isoformat()
                         state["last_episode_time"] = state["live_start_time"]
                         state["session_id"] = start_session()
+                        _write_shutdown_flag(False)
                         scheduler.first_win_done = False
                         print(f"[{ts()}] [Bot] 检测到正在直播 (session={state['session_id']})")
                 else:
-                    # 没在播，等30秒再查
                     if state["is_live"]:
-                        print(f"[{ts()}] [Bot] 检测到未开播，切换为待机")
-                        state["is_live"] = False
-                        state["current_vision"] = None
+                        await _perform_down_cleanup(state)
                     await asyncio.sleep(30)
                     continue
 
@@ -793,6 +880,7 @@ async def main():
                             await ws.send_bytes(_pack(verify, 1, DP_VERIFY))
 
                             hb_task = asyncio.create_task(_heartbeat_loop(ws))
+                            poller_task = asyncio.create_task(_live_status_poller(session, state))
                             try:
                                 async for msg in ws:
                                     if msg.type == aiohttp.WSMsgType.BINARY:
@@ -801,6 +889,7 @@ async def main():
                                         break
                             finally:
                                 hb_task.cancel()
+                                poller_task.cancel()
 
                         break
                     except Exception as e:
@@ -821,6 +910,10 @@ async def main():
 
             print(f"[{ts()}] [Bot] 5秒后重连...")
             await asyncio.sleep(5)
+
+        if state.get("is_live") and state.get("session_id"):
+            print(f"[{ts()}] [Bot] 退出前执行下播整理...")
+            await _perform_down_cleanup(state)
 
         sampler_task.cancel()
         episode_task.cancel()
