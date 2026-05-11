@@ -2,6 +2,7 @@
 弹幕机器人配置 - 从 config.json 读取
 """
 import os
+import sys
 from datetime import datetime
 
 
@@ -64,7 +65,16 @@ def _init():
     globals()["DANMAKU_COOLDOWN"] = c.get("intervals", "danmaku_cooldown")
     globals()["GIFT_THANK_THRESHOLD"] = c.get("intervals", "gift_thank_threshold")
 
-    globals()["FFMPEG_PATH"] = "ffmpeg"
+    # ffmpeg: bundled exe > local dir > system PATH
+    import platform as _plat
+    _exe_name = "ffmpeg.exe" if _plat.system() == "Windows" else "ffmpeg"
+    _dirname = os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, "frozen", False):
+        _bundled = os.path.join(sys._MEIPASS, _exe_name)
+        globals()["FFMPEG_PATH"] = _bundled if os.path.isfile(_bundled) else "ffmpeg"
+    else:
+        _local = os.path.join(_dirname, _exe_name)
+        globals()["FFMPEG_PATH"] = _local if os.path.isfile(_local) else "ffmpeg"
 
     globals()["SHUTDOWN_FLAG_PATH"] = os.path.join(bot_data_dir, "clean_shutdown.flag")
 

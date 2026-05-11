@@ -23,17 +23,28 @@ jobs:
       - name: Install dependencies
         run: pip install aiohttp brotli httpx pywebview pyinstaller
 
-      - name: Install macOS extras
+      - name: Download ffmpeg (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          Invoke-WebRequest -Uri "https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip" -OutFile ffmpeg.zip
+          Expand-Archive ffmpeg.zip -DestinationPath .
+          $dir = Get-ChildItem -Directory -Filter "ffmpeg-*" | Select-Object -First 1
+          Copy-Item "$($dir.FullName)\bin\ffmpeg.exe" ffmpeg.exe
+
+      - name: Download ffmpeg (macOS)
         if: runner.os == 'macOS'
-        run: pip install pyobjc-framework-WebKit 2>/dev/null || true
+        run: |
+          curl -L -o ffmpeg.zip "https://evermeet.cx/ffmpeg/getrelease/zip"
+          unzip -o ffmpeg.zip
+          chmod +x ffmpeg
 
       - name: Build (Windows)
         if: runner.os == 'Windows'
-        run: pyinstaller --onefile --noconsole --add-data "static;static" --name Bili-Jarvis launcher.pyw
+        run: pyinstaller --onefile --noconsole --add-data "static;static" --add-binary "ffmpeg.exe;." --name Bili-Jarvis launcher.pyw
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
-        run: pyinstaller --onefile --windowed --add-data "static:static" --name Bili-Jarvis launcher.pyw
+        run: pyinstaller --onefile --windowed --add-data "static:static" --add-binary "ffmpeg:." --name Bili-Jarvis launcher.pyw
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
