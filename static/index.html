@@ -526,6 +526,7 @@ async function pollStatus() {
 // ========== Logs ==========
 let _logLineCount = 0;
 let _logPaused = false;
+let _logError = false;
 
 function toggleLogPause() { _logPaused = document.getElementById('logPause').checked; }
 
@@ -539,17 +540,24 @@ async function pollLogs() {
     try {
         const logs = await pywebview.api.get_logs(_logLineCount);
         if (!logs || logs.length === 0) return;
+        _logError = false;
         const viewer = document.getElementById('logViewer');
         const autoScroll = document.getElementById('logAutoScroll').checked;
         for (const [ts, msg] of logs) {
             const div = document.createElement('div');
             div.className = 'log-line';
-            div.textContent = `[${ts}] ${msg}`;
+            div.textContent = '[' + ts + '] ' + msg;
             viewer.appendChild(div);
         }
         _logLineCount += logs.length;
         if (autoScroll) viewer.scrollTop = viewer.scrollHeight;
-    } catch (e) { /* silent */ }
+    } catch (e) {
+        if (!_logError) {
+            _logError = true;
+            const viewer = document.getElementById('logViewer');
+            viewer.innerHTML += '<div class="log-line" style="color:var(--danger)">[日志] 连接失败: ' + e + '</div>';
+        }
+    }
 }
 
 // ========== Init ==========

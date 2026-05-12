@@ -9,17 +9,19 @@ import threading
 import traceback
 import webview
 
-from config_manager import config
+from config_manager import config, CONFIG_PATH as _cfg_path
 from bot_state import BotState, set_state as set_global_state
 from log_util import set_log_interceptor
 
 
 def _run_bot(state: BotState):
+    state.add_log("GUI 启动，正在初始化...")
     from bot import main as bot_main
-    from bot_config import BOT_DATA_DIR
+    from bot_config import BOT_DATA_DIR, ROOM_ID
     from log_util import init_log
     init_log(BOT_DATA_DIR)
     set_log_interceptor(lambda msg: state.add_log(msg))
+    state.add_log(f"Bot 线程就绪，监控房间 {ROOM_ID}")
     asyncio.run(bot_main(bot_state=state))
 
 
@@ -28,7 +30,9 @@ class GuiApi:
         self.state = state
 
     def get_config(self):
-        return config.export()
+        c = config.export()
+        c["_path"] = _cfg_path
+        return c
 
     def save_settings(self, data: dict):
         try:
@@ -55,7 +59,10 @@ class GuiApi:
         import subprocess
         self.state.restart_requested = True
         try:
-            subprocess.Popen([sys.executable] + sys.argv, close_fds=True)
+            exe = sys.executable
+            cwd = os.path.dirname(exe)
+            subprocess.Popen([exe] + [os.path.abspath(a) for a in sys.argv],
+                           cwd=cwd, close_fds=True)
         except Exception:
             pass
         webview.windows[0].destroy()
