@@ -124,17 +124,28 @@ class ConfigManager:
             self._data = dict(DEFAULT_CONFIG)
             self.save()
 
+    def _is_filled(self, val) -> bool:
+        """空字符串/空列表/空字典不算有效值"""
+        if val is None:
+            return False
+        if isinstance(val, str):
+            return bool(val)
+        if isinstance(val, (list, dict)):
+            return len(val) > 0
+        return True
+
     def _merge_defaults(self, loaded: dict) -> dict:
         result = dict(DEFAULT_CONFIG)
         for section, defaults in DEFAULT_CONFIG.items():
             if section in loaded and isinstance(loaded[section], dict):
                 if isinstance(defaults, dict):
                     for key in defaults:
-                        if key in loaded[section]:
+                        if key in loaded[section] and self._is_filled(loaded[section][key]):
                             result[section][key] = loaded[section][key]
                 elif isinstance(defaults, list):
-                    result[section] = loaded[section]
-            elif section in loaded:
+                    if self._is_filled(loaded[section]):
+                        result[section] = loaded[section]
+            elif section in loaded and self._is_filled(loaded[section]):
                 result[section] = loaded[section]
         return result
 
