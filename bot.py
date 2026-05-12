@@ -233,30 +233,25 @@ async def _cleanup_abnormal_exit(ws_session: aiohttp.ClientSession, state: dict)
     print(f"[{ts()}] [Bot] 检测到上一次异常退出，开始残留清理...")
     log("[Bot] 检测到异常退出残留")
 
+    live_now = False
     try:
         info = await _get_room_play_info(ws_session, ROOM_ID)
-        if info.get("live_status") == 1:
-            print(f"[{ts()}] [Bot] 当前正在直播，等待下播后整理...")
-            log("[Bot] 等待下播以完成残留整理")
-            while True:
-                await asyncio.sleep(30)
-                try:
-                    info = await _get_room_play_info(ws_session, ROOM_ID)
-                    if info.get("live_status") != 1:
-                        break
-                except Exception:
-                    await asyncio.sleep(30)
+        live_now = info.get("live_status") == 1
     except Exception as e:
         print(f"[{ts()}] [Bot] 检查直播状态失败: {e}，直接执行清理")
         log(f"[ERROR] [Bot] 检查直播状态失败: {type(e).__name__}: {e}")
 
-    last_session_id = get_last_live_session()
-    if last_session_id is not None:
-        state["session_id"] = last_session_id
-        state["is_live"] = True
-        await _perform_down_cleanup(state)
+    if live_now:
+        print(f"[{ts()}] [Bot] 当前正在直播，跳过 session 整理，仅清理残留文件")
+        log("[Bot] 直播中，跳过整理")
     else:
-        print(f"[{ts()}] [Bot] 未找到未关闭的 session，跳过整理")
+        last_session_id = get_last_live_session()
+        if last_session_id is not None:
+            state["session_id"] = last_session_id
+            state["is_live"] = True
+            await _perform_down_cleanup(state)
+        else:
+            print(f"[{ts()}] [Bot] 未找到未关闭的 session，跳过整理")
 
     cleanup_leftover_clips()
     _write_shutdown_flag(True)
