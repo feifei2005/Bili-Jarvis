@@ -33,12 +33,7 @@ class GuiApi:
     def save_settings(self, data: dict):
         try:
             for section, values in data.items():
-                current = config._data.get(section, {})
-                if isinstance(current, dict):
-                    config.set_section(section, values)
-                else:
-                    config._data[section] = values
-                    config.save()
+                config.set_section(section, values)
             return {"ok": True}
         except Exception as e:
             return {"ok": False, "error": str(e)}
@@ -71,7 +66,10 @@ def run():
     set_global_state(state)
 
     api = GuiApi(state)
-    html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
+    if getattr(sys, "frozen", False):
+        html_path = os.path.join(sys._MEIPASS, "static", "index.html")
+    else:
+        html_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static", "index.html")
 
     window = webview.create_window(
         "Bili-Jarvis",

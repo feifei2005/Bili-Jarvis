@@ -55,7 +55,11 @@ def _init():
     globals()["VISION_CLIP_SECONDS"] = c.get("intervals", "vision_clip_seconds")
     globals()["PLAY_URL_API"] = "https://api.live.bilibili.com/xlive/web-room/v2/index/getRoomPlayInfo"
 
-    bot_data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "bot_data")
+    bot_data_dir = os.path.join(
+        os.path.dirname(sys.executable) if getattr(sys, "frozen", False)
+        else os.path.dirname(os.path.abspath(__file__)),
+        "bot_data"
+    )
     globals()["BOT_DATA_DIR"] = bot_data_dir
     globals()["MEMORY_DB_PATH"] = os.path.join(bot_data_dir, "memory.db")
     globals()["LONG_TERM_DB_PATH"] = os.path.join(bot_data_dir, "long_term.db")

@@ -3,9 +3,15 @@
 """
 import json
 import os
+import sys
 import threading
 
-CONFIG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config.json")
+if getattr(sys, "frozen", False):
+    _ROOT = os.path.dirname(sys.executable)
+else:
+    _ROOT = os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_PATH = os.path.join(_ROOT, "config.json")
 
 DEFAULT_CONFIG = {
     "room": {
@@ -102,7 +108,7 @@ DEFAULT_CONFIG = {
 
 class ConfigManager:
     def __init__(self):
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
         self._data = None
         self._load()
 
