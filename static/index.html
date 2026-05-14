@@ -267,6 +267,12 @@ body {
         <div id="rulesList"></div>
     </div>
 
+    <h3 style="margin:16px 0 10px">大航海感谢</h3>
+    <div class="form-group">
+        <label>感谢模板（可用 {"{uname}"} {"{guard_name}"} {"{num}"}）</label>
+        <input id="t_msg_guard" placeholder="感谢{uname}开通了{guard_name}，老板大气～">
+    </div>
+
     <div style="margin-top:12px">
         <button class="btn btn-primary" onclick="saveTemplates()">保存模板</button>
         <span style="font-size:12px;color:var(--warn);margin-left:8px" id="templatesHint"></span>
@@ -355,6 +361,7 @@ function loadTemplateUI(c) {
     renderList('mwList', t.medal_welcomes || []);
     renderList('nwList', t.new_welcomes || []);
     renderRules(t.rules || []);
+    document.getElementById('t_msg_guard').value = t.msg_guard_thank || '感谢{uname}开通了{guard_name}，老板大气～';
 }
 
 function renderList(containerId, items) {
@@ -470,6 +477,7 @@ async function saveTemplates() {
         medal_welcomes: collectList('mwList'),
         new_welcomes: collectList('nwList'),
         rules: collectRules(),
+        msg_guard_thank: document.getElementById('t_msg_guard').value,
     };
     try {
         await pywebview.api.save_templates(data);

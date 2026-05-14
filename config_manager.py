@@ -102,6 +102,7 @@ DEFAULT_CONFIG = {
             {"id": "night", "msg": "主播，早点休息，今天的直播也很努力呢～", "trigger": "night"},
             {"id": "ranking", "msg": "打人气榜时间到，大家每人最多200票，帮主播冲一波推流～", "trigger": "ranking"},
         ],
+        "msg_guard_thank": "感谢{uname}开通了{guard_name}，老板大气～",
     },
 }
 

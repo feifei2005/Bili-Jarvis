@@ -19,6 +19,7 @@ NEW_WELCOMES = _t("new_welcomes")
 
 # ========== 规则引擎消息 ==========
 RULES = _t("rules")
+MSG_GUARD_THANK = _t("msg_guard_thank")
 
 # 兼容旧引用
 MSG_DRINK_WATER = ""

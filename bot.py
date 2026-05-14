@@ -601,6 +601,7 @@ async def _handle_message(data: bytes, session: aiohttp.ClientSession, state: di
                 "WIDGET_BANNER",
                 "DM_INTERACTION", "COLLECTION_PRAISE_UPDATE_PROCESS",
                 "ANCHOR_LOT_CHECKSTATUS", "ANCHOR_LOT_END", "ANCHOR_LOT_START",
+                "GUARD_BUY",
                 "VOICE_JOIN_ROOM_COUNT_INFO", "VOICE_JOIN_LIST",
                 "RANK_CHANGED", "POPULAR_RANK_CHANGED",
                 "MESSAGEBOX_USER_MEDAL_CHANGE",
@@ -662,6 +663,25 @@ async def _handle_message(data: bytes, session: aiohttp.ClientSession, state: di
                     print(f"[{ts()}] [SC] {uname} ¥{price}: {msg_text[:30]}")
                 log(f"[SC] {uname} ¥{price}: {msg_text[:80]}")
                 asyncio.create_task(send_danmaku(session, ROOM_ID, f"谢谢{uname}的SC，老板大气～"))
+
+            elif "GUARD_BUY" in cmd:
+                gd = d.get("data", {})
+                uname = gd.get("username", "")
+                guard_name = gd.get("guard_name", "舰长")
+                uid = str(gd.get("uid", ""))
+                num = gd.get("num", 1)
+                guard_level = gd.get("guard_level", 3)
+                state["danmaku_pool"].append({
+                    "ts": time.time(),
+                    "u": uname,
+                    "m": f"[大航海] {uname} 开通 {guard_name} x{num}"
+                })
+                if DEBUG_MODE:
+                    print(f"[{ts()}] [Guard] {uname} 开通 {guard_name} x{num}")
+                log(f"[Guard] {uname} 开通 {guard_name} x{num} uid={uid}")
+                from prompts import MSG_GUARD_THANK
+                thank_msg = MSG_GUARD_THANK.format(uname=uname, guard_name=guard_name, num=num)
+                asyncio.create_task(send_danmaku(session, ROOM_ID, thank_msg))
 
             elif "PK_BATTLE_START_NEW" in cmd:
                 pk_data = d.get("data", {})
